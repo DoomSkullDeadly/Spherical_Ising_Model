@@ -4,10 +4,19 @@
 #include <time.h>
 
 
+#define J 1
+#define mu_b 1
+
+
 typedef struct {
     double x;
     double y;
     double z;
+} Vec3;
+
+
+typedef struct {
+    Vec3 coord;
     unsigned char spin;
     int close_6[6];
 } Point;
@@ -21,7 +30,7 @@ typedef struct {
     int step;
     int delta_checks;
     double T;
-    double B;
+    Vec3 B;
     int output;
     int randomise;
     Point *points;
@@ -46,10 +55,14 @@ void output(Model*);
 
 void set_evolve(Model*);
 
+double dot_prod(Vec3, Vec3);
+
+double vec_mag(Vec3);
+
 
 int main() {
     srand(time(NULL));
-    Model model = {100, 0, 0, 0, 0, 20, 1., 2., 0, 1};
+    Model model = {100, 0, 0, 0, 0, 20, 1., 2., 0, 0, 0, 1};
 
     int running = 1;
     double lower, upper, increment;
@@ -106,9 +119,9 @@ void distribute_points(Model* model) {
         double s = start + i * increment;
         double X = s * (0.1 + 1.2 * model->n_points);
         double Y = M_PI / 2. * copysign(1, s) * (1. - sqrt(1. - fabs(s)));
-        model->points[i].x = cos(X) * cos(Y);
-        model->points[i].y = sin(X) * cos(Y);
-        model->points[i].z = sin(Y);
+        model->points[i].coord.x = cos(X) * cos(Y);
+        model->points[i].coord.y = sin(X) * cos(Y);
+        model->points[i].coord.z = sin(Y);
     }
 }
 
@@ -122,9 +135,9 @@ void randomise(Model* model) {
 
 double point_distance(Point p1, Point p2) {
     double sum = 0;
-    sum += pow(p1.x - p2.x, 2);
-    sum += pow(p1.y - p2.y, 2);
-    sum += pow(p1.z - p2.z, 2);
+    sum += pow(p1.coord.x - p2.coord.x, 2);
+    sum += pow(p1.coord.y - p2.coord.y, 2);
+    sum += pow(p1.coord.z - p2.coord.z, 2);
     return sum;
 }
 
@@ -152,12 +165,27 @@ void nns(Model* model) {
 
 
 double norm_mag(Model* model) {
-    return 0.;
+    double M = 0;
+    for (int point = 0; point < model->n_points; ++point) {
+        M += model->points[point].spin;
+    }
+    M *= 2. / model->n_points;
+    return M;
 }
 
 
 double energy(Model* model) {
-    return 0.;
+    double E = 0;
+    for (int point = 0; point < model->n_points; ++point) {
+        double neighbour_sum = 0;
+        for (int i = 0; i < 6; ++i) {
+            neighbour_sum -= (double)model->points[point].spin-.5 * (double)model->points[model->points[point].close_6[i]].spin-.5;
+        }
+        E -= J * neighbour_sum;
+        double p_dot_b = dot_prod(model->points[point].coord, model->B);
+        E -= mu_b * p_dot_b / vec_mag(model->points[point].coord) * (double)model->points[point].spin-.5;
+    }
+    return E;
 }
 
 
@@ -184,7 +212,25 @@ void output(Model* model) {
     file = fopen(buf, "w");
 
     for (int i = 0; i < model->n_points; ++i) {
-        fprintf(file, "%g %g %g %i\n", model->points[i].x, model->points[i].y, model->points[i].z, model->points[i].spin);
+        fprintf(file, "%g %g %g %i\n", model->points[i].coord.x, model->points[i].coord.y, model->points[i].coord.z, model->points[i].spin);
     }
     fclose(file);
+}
+
+
+double dot_prod(Vec3 v1, Vec3 v2) {
+    double dp = 0;
+    dp += v1.x * v2.x;
+    dp += v1.y * v2.y;
+    dp += v1.z * v2.z;
+    return dp;
+}
+
+
+double vec_mag(Vec3 v) {
+    double sum = 0;
+    sum += pow(v.x, 2);
+    sum += pow(v.y, 2);
+    sum += pow(v.z, 2);
+    return sqrt(sum);
 }
