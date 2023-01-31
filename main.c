@@ -4,8 +4,9 @@
 #include <time.h>
 
 
-#define J 1
-#define mu_b 1
+#define J 1.
+#define mu_b 1.
+#define k_b 1.
 
 
 typedef struct {
@@ -62,7 +63,7 @@ double vec_mag(Vec3);
 
 int main() {
     srand(time(NULL));
-    Model model = {100, 0, 0, 0, 0, 20, 1., 2., 0, 0, 0, 1};
+    Model model = {1000, 0, 0, 50, 0, 0, 1., 2., 0., 0., 1, 1};
 
     int running = 1;
     double lower, upper, increment;
@@ -90,6 +91,7 @@ int main() {
                 if (model.randomise) {
                     randomise(&model);
                 }
+                nns(&model);
                 set_evolve(&model);
                 break;
 
@@ -189,7 +191,45 @@ double energy(Model* model) {
 }
 
 
-void evolve(Model*) {}
+void evolve(Model* model) {
+    int running = 1;
+    if (model->output) {
+        output(model);
+    }
+    double d_E[model->delta_checks];
+    while (running) {
+        model->step++;
+        for (int i = 0; i < model->n_points; ++i) {  // single step is considered as n points tested
+            int point = rand() % model->n_points;
+            int current_spin = model->points[point].spin;
+            model->points[point].spin = current_spin ? 0 : 1;  // sets spin to opposite
+
+            double new_E = energy(model);
+            double delta_E = new_E - model->energy;
+
+            if (delta_E > 0 && (float) (rand() % 100000) / 100000 > exp(-delta_E / (k_b * model->T))) { // set back to original
+                model->points[point].spin = current_spin;
+            }
+            else {
+                model->energy = new_E;
+            }
+        }
+
+        if (model->step == // if the model is set to run for a specified amount of steps it'll stop when those are reached
+            model->evolve_steps && model->evolve_steps) {
+            running = 0;
+        }
+        else if (!model->evolve_steps) {
+            d_E[model->step % model->delta_checks] = model->energy; // sets current pos to current energy
+            if (fabs(d_E[(model->step+1) % model->delta_checks] - model->energy) < fabs(model->energy * 0.001)) {
+                running = 0; // if the change in energy over the last n steps is less than 0.1% of the current energy it will stop running the model. This seems to work reliably.
+            }
+        }
+        if (model->output) {
+            output(model);
+        }
+    }
+}
 
 
 void set_evolve(Model* model) { // performs evolution once
