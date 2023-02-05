@@ -44,7 +44,7 @@ double energy(Model*);
 
 double norm_mag(Model*);
 
-double point_distance(Point, Point);
+double point_distance_squared(Point p1, Point p2);
 
 void nns(Model*);
 
@@ -63,7 +63,7 @@ double vec_mag(Vec3);
 
 int main() {
     srand(time(NULL));
-    Model model = {5000, 0, 0, 250, 0, 0, 1., 2., 0., 0., 1, 1};
+    Model model = {10000, 0, 0, 250, 0, 0, 5, 10., 0., 0., 1, 1};
 
     int running = 1;
     double lower, upper, increment;
@@ -135,7 +135,7 @@ void randomise(Model* model) {
 }
 
 
-double point_distance(Point p1, Point p2) {
+double point_distance_squared(Point p1, Point p2) {
     double sum = 0;
     sum += pow(p1.coord.x - p2.coord.x, 2);
     sum += pow(p1.coord.y - p2.coord.y, 2);
@@ -150,22 +150,19 @@ void nns(Model* model) {
 
     for (int point = 0; point < model->n_points; ++point) {  // looping over all points
         printf("%i\n", point);
-        for (int i = 0; i < model->n_points; ++i) {  // setting up index array
+        for (int i = 0; i < model->n_points; ++i) {  // setting up index and distances arrays
             indexes[i] = i;
-            distances[i] = point_distance(model->points[point], model->points[i]);
+            distances[i] = point_distance_squared(model->points[point], model->points[i]);
         }
 
         for (int i = 1; i < model->n_points; ++i) {  // insertion sort to get all indexes of points sorted by distance
             int key = indexes[i];
-            double d_key = distances[i];
             int j = i-1;
             while (j >= 0 && distances[key] < distances[indexes[j]]) {
                 indexes[j+1] = indexes[j];
-                distances[j+1]= distances[j];
                 j -= 1;
             }
             indexes[j+1] = key;
-            distances[j+1] = d_key;
         }
         for (int k = 0; k < 6; ++k) {  // closest 6 points are stored for each point, excluding the point itself [0]
             model->points[point].close_6[k] = indexes[k+1];
