@@ -2,29 +2,32 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include "Vec3.h"
 
 
 #define J 1.
 #define mu_b 1.
+#define mu_0 1.
 #define k_b 1.
 
 
 typedef struct {
-    double x;
-    double y;
-    double z;
-} Vec3;
+    Vec3 coord;
+    Vec3 moment;
+} Dipole;
 
 
 typedef struct {
     Vec3 coord;
     unsigned char spin;
+    Vec3 B;
     int close_6[6];
 } Point;
 
 
 typedef struct {
     int n_points;
+    int n_dipoles;
     double energy;
     double mag;
     int evolve_steps;
@@ -34,7 +37,9 @@ typedef struct {
     Vec3 B;
     int output;
     int randomise;
-    Point *points;
+    int field_type;
+    Dipole* dipoles;
+    Point* points;
 } Model;
 
 
@@ -54,16 +59,14 @@ void evolve(Model*);
 
 void output(Model*);
 
+void B_from_dipoles(Model*);
+
 void set_evolve(Model*);
-
-double dot_prod(Vec3, Vec3);
-
-double vec_mag(Vec3);
 
 
 int main() {
     srand(time(NULL));
-    Model model = {10000, 0, 0, 250, 0, 0, 5, 10., 0., 0., 1, 1};
+    Model model = {1000, 1, 0, 0, 0, 0, 20, 3., 20., 0., 0., 1, 1, 2};
 
     int running = 1;
     double lower, upper, increment;
@@ -105,6 +108,32 @@ int main() {
                 nns(&model);
                 randomise(&model);
                 output(&model);
+                break;
+
+            case 3:  // temporary for testing
+                model.points = (Point*) malloc(model.n_points * sizeof(Point));
+                if (model.points == NULL) {
+                    printf("Error occurred allocating memory!\n");
+                    exit(0);
+                }
+                distribute_points(&model);
+                randomise(&model);
+                nns(&model);
+
+                model.dipoles = (Dipole*) malloc(model.n_dipoles * sizeof(Dipole));
+                if (model.dipoles == NULL) {
+                    printf("Error occurred allocating memory!\n");
+                    exit(0);
+                }
+                model.dipoles[0].moment.x = 0;
+                model.dipoles[0].moment.y = 0;
+                model.dipoles[0].moment.z = 1000;
+                model.dipoles[0].coord.x = 1;
+                model.dipoles[0].coord.y = 0;
+                model.dipoles[0].coord.z = 0;
+                B_from_dipoles(&model);
+
+                set_evolve(&model);
                 break;
         }
     }
@@ -189,7 +218,15 @@ double energy(Model* model) {
             neighbour_sum -= (double)model->points[point].spin-.5 * (double)model->points[model->points[point].close_6[i]].spin-.5;
         }
         E -= J * neighbour_sum;
-        double p_dot_b = dot_prod(model->points[point].coord, model->B);
+
+        double p_dot_b = 0;
+        if (model->field_type == 1) {
+            p_dot_b = vec_dot_prod(model->points[point].coord, model->B);
+        }
+        else if (model->field_type == 2) {
+            p_dot_b = vec_dot_prod(model->points[point].coord, model->points[point].B);
+        }
+
         E -= mu_b * p_dot_b / vec_mag(model->points[point].coord) * (double)model->points[point].spin-.5;
     }
     return E;
@@ -263,19 +300,28 @@ void output(Model* model) {
 }
 
 
-double dot_prod(Vec3 v1, Vec3 v2) {
-    double dp = 0;
-    dp += v1.x * v2.x;
-    dp += v1.y * v2.y;
-    dp += v1.z * v2.z;
-    return dp;
-}
+void B_from_dipoles(Model* model) {
+    for (int point = 0; point < model->n_points; ++point) {
+        printf("%i\n", point);
+        model->points[point].B.x = 0.;
+        model->points[point].B.y = 0.;
+        model->points[point].B.z = 0.;
+        for (int i = 0; i < model->n_dipoles; ++i) {
+            Vec3 r = {0, 0, 0};
+            vec_add(&r, model->points[point].coord);
+            vec_diff(&r, model->dipoles[i].coord);
+            double mag_r = vec_mag(r);
+            double m_dot_r = vec_dot_prod(model->dipoles[i].moment, r);
 
+            vec_add(&model->points[point].B, r);
+            vec_mult(&model->points[point].B, 3 * m_dot_r);
+            vec_div(&model->points[point].B, pow(mag_r, 5));
 
-double vec_mag(Vec3 v) {
-    double sum = 0;
-    sum += pow(v.x, 2);
-    sum += pow(v.y, 2);
-    sum += pow(v.z, 2);
-    return sqrt(sum);
+            Vec3 half2 = {0, 0, 0};
+            vec_add(&half2, model->dipoles[i].moment);
+            vec_div(&half2, pow(mag_r, 3));
+            vec_diff(&model->points[point].B, half2);
+        }
+        vec_mult(&model->points[point].B, mu_0/(4 * M_PI));
+    }
 }

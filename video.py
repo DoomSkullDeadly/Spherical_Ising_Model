@@ -10,14 +10,13 @@ files = os.listdir(data_dir)
 fig = plt.figure(figsize=(12, 12))
 ax = fig.add_subplot(projection='3d')
 
-ax.set_xlabel("X")
-ax.set_ylabel("Y")
-ax.set_zlabel("Z")
-
 
 def animate(i):
     print(i)  # because it's slow af and i wanna know where it is
     ax.clear()
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
     data = np.loadtxt(data_dir+str(i)+'.txt')
     for point in data:
         ax.scatter(point[0], point[1], point[2], color='red' if point[3] == 1 else 'blue', s=50)
