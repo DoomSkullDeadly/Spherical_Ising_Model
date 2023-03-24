@@ -30,7 +30,11 @@ typedef struct {
     Vec3 B;
     int output;
     int randomise;
-    int field_type;
+    double radius; // for spherical
+    double point_spacing; // used for all, recalculates radius at n points to abide to this
+    int length, width, height; // for rectangular and cuboidal lattices
+    int lattice_type; // 1 = rectangular, 2 = cuboidal, 3 = spherical
+    int field_type; // 1 = linear, 2 = dipole, 3 = both
     Dipole* dipoles;
     Point* points;
 } Model;

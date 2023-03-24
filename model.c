@@ -10,17 +10,43 @@
 #define k_b 1.
 
 
-void distribute_points(Model* model) {
-    double start = (-1. + 1. / (model->n_points - 1.));
-    double increment = (2. - 2. / (model->n_points - 1.)) / (model->n_points - 1.);
+void distribute_points(Model* model) { // TODO: change for rectangular and cuboidal
+    if (model->lattice_type == 1) { // rectangular lattice
+        for (int y = 0; y < model->width; ++y) {
+            for (int x = 0; x < model->length; ++x) {
+                model->points[model->length*y + x].coord.x = x * model->point_spacing;
+                model->points[model->length*y + x].coord.y = y * model->point_spacing;
+                model->points[model->length*y + x].coord.z = 0;
+            }
+        }
+    }
 
-    for (int i = 0; i < model->n_points; ++i) {
-        double s = start + i * increment;
-        double X = s * (0.1 + 1.2 * model->n_points);
-        double Y = M_PI / 2. * copysign(1, s) * (1. - sqrt(1. - fabs(s)));
-        model->points[i].coord.x = cos(X) * cos(Y);
-        model->points[i].coord.y = sin(X) * cos(Y);
-        model->points[i].coord.z = sin(Y);
+    else if (model->lattice_type == 2) { // cuboidal lattice
+        free(model->points);
+        for (int z = 0; z < model->height; ++z) {
+            for (int y = 0; y < model->width; ++y) {
+                for (int x = 0; x < model->length; ++x) {
+                    if (((z != 0 || z != model->height-1) && (x == 0 || y ==0 || x == model->length-1 || y == model->width-1)) || (z == 0 || z == model->height-1)) {
+                        // append point
+                    }
+                }
+            }
+
+        }
+    }
+
+    else if (model->lattice_type == 3) { // spherical lattice
+        double start = (-1. + 1. / (model->n_points - 1.));
+        double increment = (2. - 2. / (model->n_points - 1.)) / (model->n_points - 1.);
+
+        for (int i = 0; i < model->n_points; ++i) {
+            double s = start + i * increment;
+            double X = s * (0.1 + 1.2 * model->n_points);
+            double Y = M_PI / 2. * copysign(1, s) * (1. - sqrt(1. - fabs(s)));
+            model->points[i].coord.x = cos(X) * cos(Y);
+            model->points[i].coord.y = sin(X) * cos(Y);
+            model->points[i].coord.z = sin(Y);
+        }
     }
 }
 
@@ -41,7 +67,7 @@ double point_distance_squared(Point p1, Point p2) {
 }
 
 
-void nns(Model* model) {
+void nns(Model* model) { // TODO: change for rectangular as not needed
     int indexes[model->n_points];
     double distances[model->n_points];
 

@@ -6,6 +6,7 @@
 
 // other todos:
 // TODO: cubic lattice
+// TODO: rectangular lattice
 // TODO: functions of T and B
 // TODO: input validation
 // TODO: rewrite menu system to use functions rather than overcomplicate main()
@@ -13,7 +14,19 @@
 
 int main() {
     srand(time(NULL));
-    Model model = {1000, 0, 0, 0, 0, 0, 20, 3., 20., 0., 0., 1, 1, 2};
+    Model model = {1000,
+                   0,
+                   0,
+                   0,
+                   0,
+                   0,
+                   20,
+                   3.,
+                   20., 0., 0.,
+                   1,
+                   1,
+                   3,
+                   2};
     // TODO: initial params declared earlier as constants, allow external file for user set default settings
     int running = 1;
     double lower, upper, increment;
@@ -66,8 +79,10 @@ int main() {
                             while (settings1) {
                                 printf("(1) Number of points:\t%i\n", model.n_points);
                                 printf("(2) Temperature:\t%g\n", model.T);
-                                printf("(3) Magnetic Field Type:\t%s\n", model.field_type == 1 ? "Direct" : "Dipole");
-                                printf("(4) Edit %s\n", model.field_type == 1 ? "direct field" : "dipoles");
+                                printf("(3) Magnetic Field Type:\t%s\n", model.field_type == 1 ? "Linear" : model.field_type == 2 ? "Dipole" : "Linear and Dipole");
+                                printf("(4) Edit %s\n", model.field_type == 1 ? "linear field" : model.field_type == 2 ? "dipoles" : "linear and dipoles");
+                                printf("(5) Lattice Type: %s\n", model.lattice_type == 1 ? "Rectangular" : model.lattice_type == 2 ? "Cuboidal" : "Spherical");
+                                printf("(6) Edit Lattice Parameters\n");
                                 printf("\n(0) Exit\n");
                                 int param = 0;
                                 scanf("%i", &param);
@@ -234,6 +249,15 @@ int main() {
                 break;
 
             case 3:
+                break;
+
+            case 4:
+                break;
+
+            case 5:
+                break;
+
+            case 6:
                 break;
         }
     }
