@@ -38,8 +38,8 @@ int main() {
         printf("%i\t\t%gK\t\t%gT\t\t%i\t\t%i\n\n", model.n_points, model.T, model.B, model.evolve_steps, model.delta_checks);
         printf("(1) Run Model\n(2) Settings\n(3) Magnetisation vs Temperature\n(4) Magnetisation vs Magnetic Field\n(5) Lattice From File\n(6) Create Video\n(0) Exit\n");
         int input;
-//        scanf("%i", &input);
-        input = 1;
+        scanf("%i", &input);
+//        input = 1;  // to debug so don't have to faf with inputs
         switch (input) {
             default:
                 running = 0;
