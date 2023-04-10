@@ -10,32 +10,76 @@
 #define k_b 1.
 
 
-void distribute_points(Model* model) { // TODO: change for rectangular and cuboidal
+void distribute_points(Model* model) {
     if (model->lattice_type == 1) { // rectangular lattice
+
+        model->points = (Point*) realloc(model->points, model->length * model->width * sizeof(Point));
+        if (model->points == NULL) {
+            printf("Error occurred allocating memory!\n");
+            exit(0);
+        }
+
         for (int y = 0; y < model->width; ++y) {
             for (int x = 0; x < model->length; ++x) {
-                model->points[model->length*y + x].coord.x = x * model->point_spacing;
-                model->points[model->length*y + x].coord.y = y * model->point_spacing;
-                model->points[model->length*y + x].coord.z = 0;
+                int index = model->length * y + x;
+                model->points[index].coord.x = x * model->point_spacing;
+                model->points[index].coord.y = y * model->point_spacing;
+                model->points[index].coord.z = 0;
+
+                model->points[index].n_nns = 4;
+                model->points[index].nns = (int*) malloc(4 * sizeof(int)); //TODO: free memory cause realloc fucks this
+                if (model->points[index].nns == NULL) {
+                    printf("Error occurred allocating memory!\n");
+                    exit(0);
+                }
             }
         }
     }
 
     else if (model->lattice_type == 2) { // cuboidal lattice
         free(model->points);
+        int i = 0;
         for (int z = 0; z < model->height; ++z) {
             for (int y = 0; y < model->width; ++y) {
                 for (int x = 0; x < model->length; ++x) {
-                    if (((z != 0 || z != model->height-1) && (x == 0 || y ==0 || x == model->length-1 || y == model->width-1)) || (z == 0 || z == model->height-1)) {
-                        // append point
+                    if (((z != 0 || z != model->height-1) && (x == 0 || y == 0 || x == model->length-1 || y == model->width-1)) || (z == 0 || z == model->height-1)) {
+
+                        model->points = (Point*) realloc(model->points, (i+1) * sizeof(Point));
+                        if (model->points == NULL) {
+                            printf("Error occurred allocating memory!\n");
+                            exit(0);
+                        }
+
+                        model->points[i].coord.x = x * model->point_spacing;
+                        model->points[i].coord.y = y * model->point_spacing;
+                        model->points[i].coord.z = z * model->point_spacing;
+
+                        int cond_x = (x == 0 || x == model->length-1) ? 1 : 0;
+                        int cond_y = (y == 0 || y == model->width-1) ? 1 : 0;
+                        int cond_z = (z == 0 || z == model->height-1) ? 1 : 0;
+                        int pnns = (cond_x + cond_y + cond_z == 3) ? 3 : 4;  // checks if a corner point
+                        model->points[i].n_nns = pnns;
+                        model->points[i].nns = (int*) realloc(model->points[model->length*y + x].nns, pnns * sizeof(int));
+                        if (model->points == NULL) {
+                            printf("Error occurred allocating memory!\n");
+                            exit(0);
+                        }
+
+                        i++;
                     }
                 }
             }
-
         }
     }
 
     else if (model->lattice_type == 3) { // spherical lattice
+
+        model->points = (Point*) realloc(model->points, model->n_points * sizeof(Point));
+        if (model->points == NULL) {
+            printf("Error occurred allocating memory!\n");
+            exit(0);
+        }
+
         double start = (-1. + 1. / (model->n_points - 1.));
         double increment = (2. - 2. / (model->n_points - 1.)) / (model->n_points - 1.);
 
@@ -46,6 +90,13 @@ void distribute_points(Model* model) { // TODO: change for rectangular and cuboi
             model->points[i].coord.x = cos(X) * cos(Y);
             model->points[i].coord.y = sin(X) * cos(Y);
             model->points[i].coord.z = sin(Y);
+
+            model->points[i].n_nns = 6;
+            model->points[i].nns = (int*) realloc(model->points[i].nns, 6 * sizeof(int));
+            if (model->points == NULL) {
+                printf("Error occurred allocating memory!\n");
+                exit(0);
+            }
         }
     }
 }
@@ -67,28 +118,51 @@ double point_distance_squared(Point p1, Point p2) {
 }
 
 
-void nns(Model* model) { // TODO: change for rectangular as not needed
-    int indexes[model->n_points];
-    double distances[model->n_points];
+void nns(Model* model) {
 
-    for (int point = 0; point < model->n_points; ++point) {  // looping over all points
-        printf("%i\n", point);
-        for (int i = 0; i < model->n_points; ++i) {  // setting up index and distances arrays
-            indexes[i] = i;
-            distances[i] = point_distance_squared(model->points[point], model->points[i]);
+    if (model->lattice_type == 1) {
+        for (int i = 0; i < model->n_points; ++i) {
+            model->points[i].nns[0] = (model->n_points + i - 1) % model->n_points;
+            model->points[i].nns[1] = (model->n_points + i + 1) % model->n_points;
+            model->points[i].nns[2] = (model->n_points + i - model->length) % model->n_points;
+            model->points[i].nns[3] = (model->n_points + i + model->length) % model->n_points;
         }
+    }
 
-        for (int i = 1; i < model->n_points; ++i) {  // insertion sort to get all indexes of points sorted by distance
-            int key = indexes[i];
-            int j = i-1;
-            while (j >= 0 && distances[key] < distances[indexes[j]]) {
-                indexes[j+1] = indexes[j];
-                j -= 1;
+    else if (model->lattice_type != 1) {
+        int indexes[model->n_points];
+        double distances[model->n_points];
+        int pnns;
+
+        for (int point = 0; point < model->n_points; ++point) {  // looping over all points
+            printf("%i\n", point);
+            for (int i = 0; i < model->n_points; ++i) {  // setting up index and distances arrays
+                indexes[i] = i;
+                distances[i] = point_distance_squared(model->points[point], model->points[i]);
             }
-            indexes[j+1] = key;
-        }
-        for (int k = 0; k < 6; ++k) {  // closest 6 points are stored for each point, excluding the point itself [0]
-            model->points[point].close_6[k] = indexes[k+1];
+
+            for (int i = 1;
+                 i < model->n_points; ++i) {  // insertion sort to get all indexes of points sorted by distance
+                int key = indexes[i];
+                int j = i - 1;
+                while (j >= 0 && distances[key] < distances[indexes[j]]) {
+                    indexes[j + 1] = indexes[j];
+                    j -= 1;
+                }
+                indexes[j + 1] = key;
+            }
+
+
+            if (model->lattice_type == 2) {
+                int cond_x = (model->points[point].coord.x == 0 || model->points[point].coord.x == (model->length-1) * model->point_spacing) ? 1 : 0;
+                int cond_y = (model->points[point].coord.y == 0 || model->points[point].coord.y == (model->length-1) * model->point_spacing) ? 1 : 0;
+                int cond_z = (model->points[point].coord.z == 0 || model->points[point].coord.z == (model->length-1) * model->point_spacing) ? 1 : 0;
+                pnns = (cond_x + cond_y + cond_z == 3) ? 3 : 4;  // checks if a corner point
+            }
+            else {pnns = 6;}
+            for (int k = 0; k < pnns; ++k) {  // closest points are stored for each point, excluding the point itself [0]
+                model->points[point].nns[k] = indexes[k + 1];  // number of points depends on the lattice type, and point position.
+            }
         }
     }
 }
@@ -108,8 +182,9 @@ double energy(Model* model) {
     double E = 0;
     for (int point = 0; point < model->n_points; ++point) {
         double neighbour_sum = 0;
-        for (int i = 0; i < 6; ++i) {
-            neighbour_sum -= (double)model->points[point].spin-.5 * (double)model->points[model->points[point].close_6[i]].spin-.5;
+
+        for (int i = 0; i < model->points[point].n_nns; ++i) {
+            neighbour_sum += ((double)model->points[point].spin -.5) * ((double)model->points[model->points[point].nns[i]].spin - .5);
         }
         E -= J * neighbour_sum;
 
