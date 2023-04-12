@@ -38,8 +38,8 @@ int main() {
         printf("%i\t\t%gK\t\t%gT\t\t%i\t\t%i\n\n", model.n_points, model.T, model.B, model.evolve_steps, model.delta_checks);
         printf("(1) Run Model\n(2) Settings\n(3) Magnetisation vs Temperature\n(4) Magnetisation vs Magnetic Field\n(5) Lattice From File\n(6) Create Video\n(0) Exit\n");
         int input;
-        scanf("%i", &input);
-//        input = 1;  // to debug so don't have to faf with inputs
+//        scanf("%i", &input);
+        input = 1;  // to debug so don't have to faf with inputs
         switch (input) {
             default:
                 running = 0;
@@ -47,11 +47,11 @@ int main() {
 
             case 1:
                 printf("Allocating memory for points\n");
-                model.points = (Point*) malloc(model.n_points * sizeof(Point));
-                if (model.points == NULL) {
-                    printf("Error occurred allocating memory!\n");
-                    exit(0);
-                }
+//                model.points = (Point*) malloc(model.n_points * sizeof(Point));
+//                if (model.points == NULL) {
+//                    printf("Error occurred allocating memory!\n");
+//                    exit(0);
+//                }
                 printf("Distributing points\n");
                 distribute_points(&model);
                 if (model.randomise) {
@@ -62,6 +62,7 @@ int main() {
                 nns(&model);
                 printf("Evolving model\n");
                 set_evolve(&model);
+                running = 0;
                 break;
 
             case 2: // editing model settings
