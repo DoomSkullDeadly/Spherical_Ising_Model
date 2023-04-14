@@ -13,7 +13,8 @@
 void distribute_points(Model* model) {
     if (model->lattice_type == 1) { // rectangular lattice
 
-        model->points = (Point*) realloc(model->points, model->length * model->width * sizeof(Point));
+        model->n_points = model->length * model->width;
+        model->points = (Point*) realloc(model->points, model->n_points * sizeof(Point));
         if (model->points == NULL) {
             printf("Error occurred allocating memory!\n");
             exit(0);
@@ -37,7 +38,6 @@ void distribute_points(Model* model) {
     }
 
     else if (model->lattice_type == 2) { // cuboidal lattice
-        free(model->points);
         int i = 0;
         for (int z = 0; z < model->height; ++z) {
             for (int y = 0; y < model->width; ++y) {
@@ -59,8 +59,8 @@ void distribute_points(Model* model) {
                         int cond_z = (z == 0 || z == model->height-1) ? 1 : 0;
                         int pnns = (cond_x + cond_y + cond_z == 3) ? 3 : 4;  // checks if a corner point
                         model->points[i].n_nns = pnns;
-                        model->points[i].nns = (int*) realloc(model->points[model->length*y + x].nns, pnns * sizeof(int));
-                        if (model->points == NULL) {
+                        model->points[i].nns = (int*) malloc(pnns * sizeof(int)); //TODO: free memory cause realloc fucks it pt.2
+                        if (model->points[i].nns == NULL) {
                             printf("Error occurred allocating memory!\n");
                             exit(0);
                         }
@@ -70,6 +70,7 @@ void distribute_points(Model* model) {
                 }
             }
         }
+        model->n_points = i;
     }
 
     else if (model->lattice_type == 3) { // spherical lattice
@@ -80,7 +81,7 @@ void distribute_points(Model* model) {
             exit(0);
         }
 
-        double start = (-1. + 1. / (model->n_points - 1.));
+        double start = (-1. + 1. / (model->n_points - 1.));  //TODO: credit alg
         double increment = (2. - 2. / (model->n_points - 1.)) / (model->n_points - 1.);
 
         for (int i = 0; i < model->n_points; ++i) {
@@ -93,7 +94,7 @@ void distribute_points(Model* model) {
 
             model->points[i].n_nns = 6;
             model->points[i].nns = (int*) realloc(model->points[i].nns, 6 * sizeof(int));
-            if (model->points == NULL) {
+            if (model->points[i].nns == NULL) {
                 printf("Error occurred allocating memory!\n");
                 exit(0);
             }
@@ -152,15 +153,7 @@ void nns(Model* model) {
                 indexes[j + 1] = key;
             }
 
-
-            if (model->lattice_type == 2) {
-                int cond_x = (model->points[point].coord.x == 0 || model->points[point].coord.x == (model->length-1) * model->point_spacing) ? 1 : 0;
-                int cond_y = (model->points[point].coord.y == 0 || model->points[point].coord.y == (model->length-1) * model->point_spacing) ? 1 : 0;
-                int cond_z = (model->points[point].coord.z == 0 || model->points[point].coord.z == (model->length-1) * model->point_spacing) ? 1 : 0;
-                pnns = (cond_x + cond_y + cond_z == 3) ? 3 : 4;  // checks if a corner point
-            }
-            else {pnns = 6;}
-            for (int k = 0; k < pnns; ++k) {  // closest points are stored for each point, excluding the point itself [0]
+            for (int k = 0; k < model->points[point].n_nns; ++k) {  // closest points are stored for each point, excluding the point itself [0]
                 model->points[point].nns[k] = indexes[k + 1];  // number of points depends on the lattice type, and point position.
             }
         }
@@ -171,7 +164,7 @@ void nns(Model* model) {
 double norm_mag(Model* model) {
     double M = 0;
     for (int point = 0; point < model->n_points; ++point) {
-        M += model->points[point].spin;
+        M += model->points[point].spin -.5;
     }
     M *= 2. / model->n_points;
     return M;
@@ -184,19 +177,34 @@ double energy(Model* model) {
         double neighbour_sum = 0;
 
         for (int i = 0; i < model->points[point].n_nns; ++i) {
-            neighbour_sum += ((double)model->points[point].spin -.5) * ((double)model->points[model->points[point].nns[i]].spin - .5);
+            neighbour_sum += ((double)model->points[point].spin -.5) * ((double)model->points[model->points[point].nns[i]].spin -.5);
         }
         E -= J * neighbour_sum;
 
-        double p_dot_b = 0;
-        if (model->field_type == 1) {
-            p_dot_b = vec_dot_prod(model->points[point].coord, model->B);
-        }
-        else if (model->field_type == 2) {
-            p_dot_b = vec_dot_prod(model->points[point].coord, model->points[point].B);
+        double B; // the following could all be done by using nns to find plane and thus normal to point to use with dot prod but that would probably be more computationally taxing.
+        if (model->lattice_type == 1) {
+            B = model->B.z + model->points[point].B.z;
+            E -= mu_b * B * ((double)model->points[point].spin - .5);
         }
 
-        E -= mu_b * p_dot_b / vec_mag(model->points[point].coord) * (double)model->points[point].spin-.5;
+        else if (model->lattice_type == 2) {
+            int cond_x = (model->points[point].coord.x == 0 || model->points[point].coord.x == model->length-1) ? 1 : 0;
+            int cond_y = (model->points[point].coord.y == 0 || model->points[point].coord.y == model->width-1) ? 1 : 0;
+            int cond_z = (model->points[point].coord.z == 0 || model->points[point].coord.z == model->height-1) ? 1 : 0;
+            int cond_sum = cond_x + cond_y + cond_z;
+            Vec3 condition = {copysign(1, model->points[point].coord.x-cond_x) * cond_x / sqrt(cond_sum),
+                              copysign(1, model->points[point].coord.x-cond_y) * cond_y / sqrt(cond_sum),
+                              copysign(1, model->points[point].coord.x-cond_z) * cond_z / sqrt(cond_sum)};
+            B = vec_dot_prod(condition, model->points[point].B);
+            B += vec_dot_prod(condition, model->B);
+            E -= mu_b * B * (double)model->points[point].spin - .5;
+        }
+
+        else if (model->lattice_type == 3) {
+            B = vec_dot_prod(model->points[point].coord, model->points[point].B);
+            B += vec_dot_prod(model->points[point].coord, model->B);
+            E -= mu_b * B / vec_mag(model->points[point].coord) * (double)model->points[point].spin - .5;
+        }
     }
     return E;
 }
@@ -218,7 +226,7 @@ void evolve(Model* model) {
             double new_E = energy(model);
             double delta_E = new_E - model->energy;
 
-            if (delta_E > 0 && (float) (rand() % 100000) / 100000 > exp(-delta_E / (k_b * model->T))) { // set back to original
+            if (delta_E > 0 && (double) (rand() % 100000) / 100000 > exp(-delta_E / (k_b * model->T))) { // set back to original
                 model->points[point].spin = current_spin;
             }
             else {
