@@ -193,8 +193,8 @@ double energy(Model* model) {
             int cond_z = (model->points[point].coord.z == 0 || model->points[point].coord.z == model->height-1) ? 1 : 0;
             int cond_sum = cond_x + cond_y + cond_z;
             Vec3 condition = {copysign(1, model->points[point].coord.x-cond_x) * cond_x / sqrt(cond_sum),
-                              copysign(1, model->points[point].coord.x-cond_y) * cond_y / sqrt(cond_sum),
-                              copysign(1, model->points[point].coord.x-cond_z) * cond_z / sqrt(cond_sum)};
+                              copysign(1, model->points[point].coord.y-cond_y) * cond_y / sqrt(cond_sum),
+                              copysign(1, model->points[point].coord.z-cond_z) * cond_z / sqrt(cond_sum)};
             B = vec_dot_prod(condition, model->points[point].B);
             B += vec_dot_prod(condition, model->B);
             E -= mu_b * B * (double)model->points[point].spin - .5;
