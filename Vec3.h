@@ -17,7 +17,7 @@ void vec_mult(Vec3*, double);
 
 void vec_div(Vec3*, double);
 
-double vec_dot_prod(Vec3 v1, Vec3 v2);
+double vec_dot_prod(Vec3, Vec3);
 
 double vec_mag(Vec3);
 

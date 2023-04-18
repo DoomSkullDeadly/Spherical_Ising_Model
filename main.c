@@ -12,23 +12,23 @@
 
 int main() {
     srand(time(NULL));
-    Model model = {400,
+    Model model = {1600,
                    0,
                    0,
                    0,
                    0,
                    0,
                    20,
-                   3.,
-                   0., 0., 20.,
+                   5.,
+                   0., 0., 15.,
                    1,
                    1,
-                   3,
                    1,
-                   10,
-                   10,
-                   10,
-                   2,
+                   1,
+                   150,
+                   150,
+                   20,
+                   1,
                    1};
     // TODO: initial params declared earlier as constants, allow external file for user set default settings
     int running = 1;
@@ -58,6 +58,7 @@ int main() {
                 B_from_dipoles(&model);
                 printf("Evolving model\n");
                 set_evolve(&model);
+                free_Points(&model);
                 running = 0;
                 break;
 

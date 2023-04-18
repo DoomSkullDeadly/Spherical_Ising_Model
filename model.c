@@ -133,10 +133,8 @@ void nns(Model* model) {
     else if (model->lattice_type != 1) {
         int indexes[model->n_points];
         double distances[model->n_points];
-        int pnns;
 
         for (int point = 0; point < model->n_points; ++point) {  // looping over all points
-            printf("%i\n", point);
             for (int i = 0; i < model->n_points; ++i) {  // setting up index and distances arrays
                 indexes[i] = i;
                 distances[i] = point_distance_squared(model->points[point], model->points[i]);
@@ -181,9 +179,14 @@ double energy(Model* model) {
         }
         E -= J * neighbour_sum;
 
-        double B; // the following could all be done by using nns to find plane and thus normal to point to use with dot prod but that would probably be more computationally taxing.
+        double B = 0; // the following could all be done by using nns to find plane and thus normal to point to use with dot prod but that would probably be more computationally taxing.
         if (model->lattice_type == 1) {
-            B = model->B.z + model->points[point].B.z;
+            if (model->field_type != 2) {
+                B += model->B.z;
+            }
+            if (model->field_type != 1) {
+                B += model->points[point].B.z;
+            }
             E -= mu_b * B * ((double)model->points[point].spin - .5);
         }
 
@@ -195,14 +198,22 @@ double energy(Model* model) {
             Vec3 condition = {copysign(1, model->points[point].coord.x-cond_x) * cond_x / sqrt(cond_sum),
                               copysign(1, model->points[point].coord.y-cond_y) * cond_y / sqrt(cond_sum),
                               copysign(1, model->points[point].coord.z-cond_z) * cond_z / sqrt(cond_sum)};
-            B = vec_dot_prod(condition, model->points[point].B);
-            B += vec_dot_prod(condition, model->B);
+            if (model->lattice_type != 2) {
+                B += vec_dot_prod(condition, model->B);
+            }
+            if (model->lattice_type != 1) {
+                B += vec_dot_prod(condition, model->points[point].B);
+            }
             E -= mu_b * B * (double)model->points[point].spin - .5;
         }
 
         else if (model->lattice_type == 3) {
-            B = vec_dot_prod(model->points[point].coord, model->points[point].B);
-            B += vec_dot_prod(model->points[point].coord, model->B);
+            if (model->lattice_type != 2) {
+                B += vec_dot_prod(model->points[point].coord, model->B);
+            }
+            if (model->lattice_type != 1) {
+                B += vec_dot_prod(model->points[point].coord, model->points[point].B);
+            }
             E -= mu_b * B / vec_mag(model->points[point].coord) * (double)model->points[point].spin - .5;
         }
     }
@@ -279,7 +290,6 @@ void output(Model* model) {
 
 void B_from_dipoles(Model* model) {
     for (int point = 0; point < model->n_points; ++point) {
-        printf("%i\n", point);
         model->points[point].B.x = 0.;
         model->points[point].B.y = 0.;
         model->points[point].B.z = 0.;
@@ -301,4 +311,12 @@ void B_from_dipoles(Model* model) {
         }
         vec_mult(&model->points[point].B, mu_0/(4 * M_PI));
     }
+}
+
+
+void free_Points(Model* model) {
+    for (int i = 0; i < model->n_points; ++i) {
+        free(model->points[i].nns);
+    }
+    free(model->points);
 }

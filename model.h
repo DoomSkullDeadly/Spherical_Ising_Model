@@ -61,5 +61,7 @@ void B_from_dipoles(Model*);
 
 void set_evolve(Model*);
 
+void free_Points(Model*);
+
 
 #endif //SPHERICAL_ISING_MODEL_MODEL_H
