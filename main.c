@@ -11,23 +11,23 @@
 
 
 int main() {
-    srand(time(NULL));
+    srand(time(NULL)); // NOLINT
     Model model = {1600,
                    0,
                    0,
                    0,
-                   0,
+                   25,
                    0,
                    20,
                    5.,
-                   0., 0., 15.,
+                   0., 0., 0.,
+                   0,
                    1,
                    1,
                    1,
-                   1,
-                   150,
-                   150,
-                   20,
+                   10,
+                   10,
+                   10,
                    1,
                    1};
     // TODO: initial params declared earlier as constants, allow external file for user set default settings
@@ -59,15 +59,24 @@ int main() {
                 printf("Evolving model\n");
                 set_evolve(&model);
                 free_Points(&model);
-                running = 0;
                 break;
 
             case 2: // editing model settings
                 settings_main(&model);
                 break;
 
-            case 3:
+            case 3: {
+                double start, end, increment;
+                int repeats;
+
+                printf("Enter start, end, increment for T:\n");
+                scanf("%lf %lf %lf", &start, &end, &increment); //NOLINT
+                printf("Enter number of repeats:\n");
+                scanf("%i", &repeats); //NOLINT
+
+                M_vs_T(&model, start, end, increment, repeats);
                 break;
+            }
 
             case 4:
                 break;

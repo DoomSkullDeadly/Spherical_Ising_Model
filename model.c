@@ -8,6 +8,7 @@
 #define mu_b 1.
 #define mu_0 1.
 #define k_b 1.
+#define spin_mag 1.
 
 
 void distribute_points(Model* model) {
@@ -28,7 +29,7 @@ void distribute_points(Model* model) {
                 model->points[index].coord.z = 0;
 
                 model->points[index].n_nns = 4;
-                model->points[index].nns = (int*) malloc(4 * sizeof(int)); //TODO: free memory cause realloc fucks this
+                model->points[index].nns = (int*) malloc(4 * sizeof(int));
                 if (model->points[index].nns == NULL) {
                     printf("Error occurred allocating memory!\n");
                     exit(0);
@@ -57,9 +58,9 @@ void distribute_points(Model* model) {
                         int cond_x = (x == 0 || x == model->length-1) ? 1 : 0;
                         int cond_y = (y == 0 || y == model->width-1) ? 1 : 0;
                         int cond_z = (z == 0 || z == model->height-1) ? 1 : 0;
-                        int pnns = (cond_x + cond_y + cond_z == 3) ? 3 : 4;  // checks if a corner point
-                        model->points[i].n_nns = pnns;
-                        model->points[i].nns = (int*) malloc(pnns * sizeof(int)); //TODO: free memory cause realloc fucks it pt.2
+                        int p_nns = (cond_x + cond_y + cond_z == 3) ? 3 : 4;  // checks if a corner point
+                        model->points[i].n_nns = p_nns;
+                        model->points[i].nns = (int*) malloc(p_nns * sizeof(int));
                         if (model->points[i].nns == NULL) {
                             printf("Error occurred allocating memory!\n");
                             exit(0);
@@ -105,7 +106,7 @@ void distribute_points(Model* model) {
 
 void randomise(Model* model) {
     for (int i = 0; i < model->n_points; ++i) {
-        model->points[i].spin = rand() % 2;
+        model->points[i].spin = rand() % 2 ? spin_mag : -spin_mag; // NOLINT
     }
 }
 
@@ -162,10 +163,10 @@ void nns(Model* model) {
 double norm_mag(Model* model) {
     double M = 0;
     for (int point = 0; point < model->n_points; ++point) {
-        M += model->points[point].spin -.5;
+        M += model->points[point].spin;
     }
-    M *= 2. / model->n_points;
-    return M;
+    M /= model->n_points / spin_mag;
+    return fabs(M);
 }
 
 
@@ -175,9 +176,9 @@ double energy(Model* model) {
         double neighbour_sum = 0;
 
         for (int i = 0; i < model->points[point].n_nns; ++i) {
-            neighbour_sum += ((double)model->points[point].spin -.5) * ((double)model->points[model->points[point].nns[i]].spin -.5);
+            neighbour_sum += ((double)model->points[point].spin) * ((double)model->points[model->points[point].nns[i]].spin);
         }
-        E -= J * neighbour_sum;
+        E -= J * neighbour_sum / 2;
 
         double B = 0; // the following could all be done by using nns to find plane and thus normal to point to use with dot prod but that would probably be more computationally taxing.
         if (model->lattice_type == 1) {
@@ -187,7 +188,7 @@ double energy(Model* model) {
             if (model->field_type != 1) {
                 B += model->points[point].B.z;
             }
-            E -= mu_b * B * ((double)model->points[point].spin - .5);
+            E -= mu_b * B * ((double)model->points[point].spin);
         }
 
         else if (model->lattice_type == 2) {
@@ -204,7 +205,7 @@ double energy(Model* model) {
             if (model->lattice_type != 1) {
                 B += vec_dot_prod(condition, model->points[point].B);
             }
-            E -= mu_b * B * (double)model->points[point].spin - .5;
+            E -= mu_b * B * (double)model->points[point].spin;
         }
 
         else if (model->lattice_type == 3) {
@@ -214,7 +215,7 @@ double energy(Model* model) {
             if (model->lattice_type != 1) {
                 B += vec_dot_prod(model->points[point].coord, model->points[point].B);
             }
-            E -= mu_b * B / vec_mag(model->points[point].coord) * (double)model->points[point].spin - .5;
+            E -= mu_b * B / vec_mag(model->points[point].coord) * (double)model->points[point].spin;
         }
     }
     return E;
@@ -230,14 +231,14 @@ void evolve(Model* model) {
     while (running) {
         model->step++;
         for (int i = 0; i < model->n_points; ++i) {  // single step is considered as n points tested
-            int point = rand() % model->n_points;
-            int current_spin = model->points[point].spin;
-            model->points[point].spin = current_spin ? 0 : 1;  // sets spin to opposite
+            int point = rand() % model->n_points; // NOLINT
+            float current_spin = model->points[point].spin;
+            model->points[point].spin *= -1;  // sets spin to opposite
 
             double new_E = energy(model);
             double delta_E = new_E - model->energy;
 
-            if (delta_E > 0 && (double) (rand() % 100000) / 100000 > exp(-delta_E / (k_b * model->T))) { // set back to original
+            if (delta_E > 0 && (double) (rand() % 100000) / 100000 > exp(-delta_E / (k_b * model->T))) { // set back to original // NOLINT
                 model->points[point].spin = current_spin;
             }
             else {
@@ -265,13 +266,13 @@ void evolve(Model* model) {
 void set_evolve(Model* model) { // performs evolution once
     model->energy = energy(model);
     model->mag = norm_mag(model);
-    printf("E = %g, M = %g\n", model->energy, model->mag);
+//    printf("E = %g, M = %g\n", model->energy, model->mag);
 
     evolve(model);
 
     model->energy = energy(model);
     model->mag = norm_mag(model);
-    printf("E = %g, M = %g\n", model->energy, model->mag);
+//    printf("E = %g, M = %g\n", model->energy, model->mag);
 }
 
 
@@ -282,7 +283,7 @@ void output(Model* model) {
     file = fopen(buf, "w");
 
     for (int i = 0; i < model->n_points; ++i) {
-        fprintf(file, "%g %g %g %i\n", model->points[i].coord.x, model->points[i].coord.y, model->points[i].coord.z, model->points[i].spin);
+        fprintf(file, "%g %g %g %g\n", model->points[i].coord.x, model->points[i].coord.y, model->points[i].coord.z, model->points[i].spin);
     }
     fclose(file);
 }
@@ -319,4 +320,34 @@ void free_Points(Model* model) {
         free(model->points[i].nns);
     }
     free(model->points);
+}
+
+
+void M_vs_T(Model* model, double start, double end, double increment, int repeats) {
+    distribute_points(model);
+    nns(model);
+    int arr_length = (int)((end - start) / increment) + 1;
+    double* mags = (double*)calloc(arr_length, sizeof(double));
+    double* energies = (double*)calloc(arr_length, sizeof(double));
+    for (int i = 0; i < repeats; ++i) {
+        for (int j = 0; j < arr_length ; ++j) {
+            model->T = start + j * increment;
+            model->step = 0;
+            randomise(model);
+            set_evolve(model);
+            mags[j] += model->mag;
+            energies[j] += model->energy;
+        }
+    }
+    printf("T\tM\tE\n");
+    for (int i = 0; i < arr_length; ++i) {
+        mags[i] /= repeats;
+        energies[i] /= repeats * model->n_points;
+        printf("%g\t%g\t%g\n", start + i * increment, mags[i], energies[i]);
+    }
+}
+
+
+void M_vs_B(Model* model, double start, double end, double increment, int repeats) {
+
 }

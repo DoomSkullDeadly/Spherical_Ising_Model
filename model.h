@@ -12,7 +12,7 @@ typedef struct {
 
 typedef struct {
     Vec3 coord;
-    unsigned char spin;
+    float spin;
     Vec3 B;
     int n_nns; // I fucking hate needing to have this, but fuck me ig
     int* nns;
@@ -62,6 +62,10 @@ void B_from_dipoles(Model*);
 void set_evolve(Model*);
 
 void free_Points(Model*);
+
+void M_vs_T(Model*, double, double, double, int);
+
+void M_vs_B(Model*, double, double, double, int);
 
 
 #endif //SPHERICAL_ISING_MODEL_MODEL_H
