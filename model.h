@@ -63,9 +63,9 @@ void set_evolve(Model*);
 
 void free_Points(Model*);
 
-void M_vs_T(Model*, double, double, double, int);
+void var_T(Model*, double, double, double, int);
 
-void M_vs_B(Model*, double, double, double, int);
+void var_B(Model*, double, double, double, int);
 
 
 #endif //SPHERICAL_ISING_MODEL_MODEL_H

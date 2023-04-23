@@ -74,12 +74,22 @@ int main() {
                 printf("Enter number of repeats:\n");
                 scanf("%i", &repeats); //NOLINT
 
-                M_vs_T(&model, start, end, increment, repeats);
+                var_T(&model, start, end, increment, repeats);
                 break;
             }
 
-            case 4:
+            case 4: {
+                double start, end, increment;
+                int repeats;
+
+                printf("Enter start, end, increment for T:\n");
+                scanf("%lf %lf %lf", &start, &end, &increment); //NOLINT
+                printf("Enter number of repeats:\n");
+                scanf("%i", &repeats); //NOLINT
+
+                var_B(&model, start, end, increment, repeats);
                 break;
+            }
 
             case 5:
                 break;

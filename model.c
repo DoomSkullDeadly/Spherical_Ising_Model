@@ -323,7 +323,7 @@ void free_Points(Model* model) {
 }
 
 
-void M_vs_T(Model* model, double start, double end, double increment, int repeats) {
+void var_T(Model* model, double start, double end, double increment, int repeats) {
     distribute_points(model);
     nns(model);
     int arr_length = (int)((end - start) / increment) + 1;
@@ -345,9 +345,51 @@ void M_vs_T(Model* model, double start, double end, double increment, int repeat
         energies[i] /= repeats * model->n_points;
         printf("%g\t%g\t%g\n", start + i * increment, mags[i], energies[i]);
     }
+
+    FILE *file;
+    char buf[50];
+    sprintf(buf, "output/MvT-B=%g.txt", model->B.z);
+    file = fopen(buf, "w");
+
+    fprintf(file, "T\tM\tE\n");
+    for (int i = 0; i < arr_length; ++i) {
+        fprintf(file, "%g\t%g\t%g\n", start + i * increment, mags[i], energies[i]);
+    }
+    fclose(file);
 }
 
 
-void M_vs_B(Model* model, double start, double end, double increment, int repeats) {
+void var_B(Model* model, double start, double end, double increment, int repeats) {
+    distribute_points(model);
+    nns(model);
+    int arr_length = (int)((end - start) / increment) + 1;
+    double* mags = (double*)calloc(arr_length, sizeof(double));
+    double* energies = (double*)calloc(arr_length, sizeof(double));
+    for (int i = 0; i < repeats; ++i) {
+        for (int j = 0; j < arr_length ; ++j) {
+            model->B.z = start + j * increment;
+            model->step = 0;
+            randomise(model);
+            set_evolve(model);
+            mags[j] += model->mag;
+            energies[j] += model->energy;
+        }
+    }
+    printf("B\tM\tE\n");
+    for (int i = 0; i < arr_length; ++i) {
+        mags[i] /= repeats;
+        energies[i] /= repeats * model->n_points;
+        printf("%g\t%g\t%g\n", start + i * increment, mags[i], energies[i]);
+    }
 
+    FILE *file;
+    char buf[50];
+    sprintf(buf, "output/MvB-T=%g.txt", model->T);
+    file = fopen(buf, "w");
+
+    fprintf(file, "B\tM\tE\n");
+    for (int i = 0; i < arr_length; ++i) {
+        fprintf(file, "%g\t%g\t%g\n", start + i * increment, mags[i], energies[i]);
+    }
+    fclose(file);
 }
