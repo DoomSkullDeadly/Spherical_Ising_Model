@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 
 #define J 1.
@@ -343,7 +344,7 @@ void var_T(Model* model, double start, double end, double increment, int repeats
     for (int i = 0; i < arr_length; ++i) {
         mags[i] /= repeats;
         energies[i] /= repeats * model->n_points;
-        printf("%g\t%g\t%g\n", start + i * increment, mags[i], energies[i]);
+//        printf("%g\t%g\t%g\n", start + i * increment, mags[i], energies[i]);
     }
 
     FILE *file;
@@ -379,7 +380,7 @@ void var_B(Model* model, double start, double end, double increment, int repeats
     for (int i = 0; i < arr_length; ++i) {
         mags[i] /= repeats;
         energies[i] /= repeats * model->n_points;
-        printf("%g\t%g\t%g\n", start + i * increment, mags[i], energies[i]);
+//        printf("%g\t%g\t%g\n", start + i * increment, mags[i], energies[i]);
     }
 
     FILE *file;
@@ -390,6 +391,49 @@ void var_B(Model* model, double start, double end, double increment, int repeats
     fprintf(file, "B\tM\tE\n");
     for (int i = 0; i < arr_length; ++i) {
         fprintf(file, "%g\t%g\t%g\n", start + i * increment, mags[i], energies[i]);
+    }
+    fclose(file);
+}
+
+
+void var_T_B(Model* model, double start_B, double end_B, double start_T, double end_T, double increment, int repeats) {
+    distribute_points(model);
+    nns(model);
+    int length_B = (int)((end_B - start_B) / increment) + 1;
+    int length_T = (int)((end_T - start_T) / increment) + 1;
+    double** mags = (double**)calloc(length_T, sizeof(double*));
+    double** energies = (double**)calloc(length_T, sizeof(double*));
+    for (int i = 0; i < length_T; ++i) {
+        mags[i] = (double*)calloc(length_B, sizeof(double));
+        energies[i] = (double*)calloc(length_B, sizeof(double));
+    }
+    for (int i = 0; i < repeats; ++i) {
+        for (int T = 0; T < length_T; ++T) {
+            model->T = start_T + T * increment;
+            for (int B = 0; B < length_B; ++B) {
+                model->B.z = start_B + B * increment;
+                model->step = 0;
+                randomise(model);
+                set_evolve(model);
+                mags[T][B] += model->mag;
+                energies[T][B] += model->energy;
+            }
+        }
+    }
+    for (int i = 0; i < length_T; ++i) {
+        for (int j = 0; j < length_B; ++j) {
+            mags[i][j] /= repeats;
+            energies[i][j] /= repeats * model->n_points;
+        }
+    }
+
+    FILE *file;
+    file = fopen("output/MvTvB.txt", "w");
+    fprintf(file, "T\tB\tM\tE\n");
+    for (int i = 0; i < length_T; ++i) {
+        for (int j = 0; j < length_B; ++j) {
+            fprintf(file, "%g\t%g\t%g\t%g\n", start_T + i * increment, start_B + j * increment, mags[i][j], energies[i][j]);
+        }
     }
     fclose(file);
 }

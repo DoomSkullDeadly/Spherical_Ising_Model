@@ -67,5 +67,7 @@ void var_T(Model*, double, double, double, int);
 
 void var_B(Model*, double, double, double, int);
 
+void var_T_B(Model*, double, double, double, double, double, int);
+
 
 #endif //SPHERICAL_ISING_MODEL_MODEL_H
