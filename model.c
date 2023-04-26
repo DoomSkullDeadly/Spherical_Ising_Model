@@ -408,6 +408,7 @@ void var_T_B(Model* model, double start_B, double end_B, double start_T, double 
         energies[i] = (double*)calloc(length_B, sizeof(double));
     }
     for (int i = 0; i < repeats; ++i) {
+        printf("%i\n", i);
         for (int T = 0; T < length_T; ++T) {
             model->T = start_T + T * increment;
             for (int B = 0; B < length_B; ++B) {
