@@ -6,13 +6,13 @@
 
 
 // other todos:
-// TODO: functions of T and B
 // TODO: input validation
 
 
 int main() {
     srand(time(NULL)); // NOLINT
-    Model model = {1600,
+    Model model = {12,
+                   1600,
                    0,
                    0,
                    0,
@@ -21,6 +21,7 @@ int main() {
                    20,
                    5.,
                    0., 0., 0.,
+                   0, 0,
                    0,
                    1,
                    1,
@@ -29,7 +30,8 @@ int main() {
                    10,
                    10,
                    1,
-                   1};
+                   1,
+                   0};
     // TODO: initial params declared earlier as constants, allow external file for user set default settings
     int running = 1;
     while (running) {
@@ -104,7 +106,9 @@ int main() {
                 printf("Enter number of repeats:\n");
                 scanf("%i", &repeats); //NOLINT
 
-                var_T_B(&model, start_B, end_B, start_T, end_T, increment, repeats);
+                Settings settings = {12, 0};
+
+                var_T_B(&model, &settings, start_B, end_B, start_T, end_T, increment, repeats);
                 break;
             }
 

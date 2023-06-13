@@ -2,8 +2,8 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
-
+#include <pthread.h>
+#include <windows.h>
 
 #define J 1.
 #define mu_b 1.
@@ -273,7 +273,18 @@ void set_evolve(Model* model) { // performs evolution once
 
     model->energy = energy(model);
     model->mag = norm_mag(model);
+//    model->working = 0;
 //    printf("E = %g, M = %g\n", model->energy, model->mag);
+}
+
+
+void *thread_evolve(void *m) {
+    Model* model = (Model*)m;
+    set_evolve(model);
+    model->mags[model->Ti][model->Bi] += model->mag;
+    model->energies[model->Ti][model->Bi] += model->energy;
+    model->working = 0;
+    return NULL;
 }
 
 
@@ -396,35 +407,72 @@ void var_B(Model* model, double start, double end, double increment, int repeats
 }
 
 
-void var_T_B(Model* model, double start_B, double end_B, double start_T, double end_T, double increment, int repeats) {
+void var_T_B(Model* model, Settings* settings, double start_B, double end_B, double start_T, double end_T, double increment, int repeats) {
     distribute_points(model);
     nns(model);
     int length_B = (int)((end_B - start_B) / increment) + 1;
     int length_T = (int)((end_T - start_T) / increment) + 1;
-    double** mags = (double**)calloc(length_T, sizeof(double*));
-    double** energies = (double**)calloc(length_T, sizeof(double*));
+    model->mags = (double**)calloc(length_T, sizeof(double*));
+    model->energies = (double**)calloc(length_T, sizeof(double*));
     for (int i = 0; i < length_T; ++i) {
-        mags[i] = (double*)calloc(length_B, sizeof(double));
-        energies[i] = (double*)calloc(length_B, sizeof(double));
+        model->mags[i] = (double*)calloc(length_B, sizeof(double));
+        model->energies[i] = (double*)calloc(length_B, sizeof(double));
     }
+    settings->tid = (pthread_t*) malloc(model->thread_count * sizeof(pthread_t));
+    settings->models = (Model*) malloc(model->thread_count * sizeof(Model));
+    for (int i = 0; i < model->thread_count; ++i) {
+        copy_model(model, &settings->models[i]);
+        settings->models[i].working = 0;
+    }
+
     for (int i = 0; i < repeats; ++i) {
-        printf("%i\n", i);
+        printf("repeat: %i\n", i);
         for (int T = 0; T < length_T; ++T) {
-            model->T = start_T + T * increment;
             for (int B = 0; B < length_B; ++B) {
-                model->B.z = start_B + B * increment;
-                model->step = 0;
-                randomise(model);
-                set_evolve(model);
-                mags[T][B] += model->mag;
-                energies[T][B] += model->energy;
+//                printf("%g %g\n", T, B);
+                int run = 1;
+                int free_thread;
+                while (run) {
+                    int result = find_thread(settings);
+                    if (result != -1) {
+                        free_thread = result;
+                        run = 0;
+                    }
+                }
+//                printf("free thread: %i\n", free_thread);
+                copy_model(model, &settings->models[free_thread]);
+
+                settings->models[free_thread].T = start_T + T * increment;
+                settings->models[free_thread].B.z = start_B + B * increment;
+                settings->models[free_thread].step = 0;
+
+                randomise(&settings->models[free_thread]);
+
+                settings->models[free_thread].Ti = T;
+                settings->models[free_thread].Bi = B;
+                settings->to_run = free_thread;
+                settings->models[free_thread].working = 1;
+
+                pthread_create(&settings->tid[free_thread], NULL, thread_evolve, &settings->models[free_thread]);
+                pthread_detach(settings->tid[free_thread]);
             }
         }
     }
+    printf("Simulation finished\n");
+
+    int wait = 1;
+    while (wait) {
+        int done = 0;
+        for (int i = 0; i < model->thread_count; ++i) {
+            if (!settings->models[i].working) {++done;}
+        }
+        if (done == model->thread_count) {wait=0;}
+    }
+
     for (int i = 0; i < length_T; ++i) {
         for (int j = 0; j < length_B; ++j) {
-            mags[i][j] /= repeats;
-            energies[i][j] /= repeats * model->n_points;
+            model->mags[i][j] /= repeats;
+            model->energies[i][j] /= repeats * model->n_points;
         }
     }
 
@@ -433,8 +481,67 @@ void var_T_B(Model* model, double start_B, double end_B, double start_T, double 
     fprintf(file, "T\tB\tM\tE\n");
     for (int i = 0; i < length_T; ++i) {
         for (int j = 0; j < length_B; ++j) {
-            fprintf(file, "%g\t%g\t%g\t%g\n", start_T + i * increment, start_B + j * increment, mags[i][j], energies[i][j]);
+            fprintf(file, "%g\t%g\t%g\t%g\n", start_T + i * increment, start_B + j * increment, model->mags[i][j], model->energies[i][j]);
         }
     }
     fclose(file);
+}
+
+
+int find_thread(Settings* settings) {
+    for (int i = 0; i < settings->thread_count; ++i) {
+        if (!settings->models[i].working) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
+void copy_model(Model* old, Model* new) { // couldn't be asked to figure out how to deepcopy, so did it manually
+    new->thread_count = old->thread_count;
+    new->n_points = old->n_points;
+    new->lattice_type = old->lattice_type;
+    new->length = old->length;
+    new->step = old->step;
+    new->B.x = old->B.x;
+    new->B.y = old->B.y;
+    new->B.z = old->B.z;
+    new->width = old->width;
+    new->point_spacing = old->point_spacing;
+    new->height = old->height;
+    new->T = old->T;
+    new->delta_checks = old->delta_checks;
+    new->evolve_steps = old->evolve_steps;
+    new->n_dipoles = old->n_dipoles;
+    new->dipoles = (Dipole*) malloc(old->n_dipoles * sizeof(Dipole));
+    new->output = old->output;
+    new->field_type = old->field_type;
+    new->randomise = old->field_type;
+    new->radius = old->radius;
+    new->working = old->working;
+    new->points = (Point*) malloc(old->n_points * sizeof(Point));
+    for (int i = 0; i < old->n_points; ++i) {
+        new->points[i].coord.x = old->points[i].coord.x;
+        new->points[i].coord.y = old->points[i].coord.y;
+        new->points[i].coord.z = old->points[i].coord.z;
+        new->points[i].n_nns = old->points[i].n_nns;
+        new->points[i].nns = (int*) malloc(old->points[i].n_nns * sizeof(int));
+        for (int nns = 0; nns < new->points[i].n_nns; ++nns) {
+            new->points[i].nns[nns] = old->points[i].nns[nns];
+        }
+        new->points[i].B.x = old->points[i].B.x;
+        new->points[i].B.y = old->points[i].B.y;
+        new->points[i].B.z = old->points[i].B.z;
+    }
+    for (int i = 0; i < new->n_dipoles; ++i) {
+        new->dipoles[i].moment.x = old->dipoles[i].moment.x;
+        new->dipoles[i].moment.y = old->dipoles[i].moment.y;
+        new->dipoles[i].moment.z = old->dipoles[i].moment.z;
+        new->dipoles[i].coord.x = old->dipoles[i].coord.x;
+        new->dipoles[i].coord.y = old->dipoles[i].coord.y;
+        new->dipoles[i].coord.z = old->dipoles[i].coord.z;
+    }
+    new->mags = old->mags;
+    new->energies = old->energies;
 }

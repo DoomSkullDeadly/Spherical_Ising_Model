@@ -2,6 +2,7 @@
 #define SPHERICAL_ISING_MODEL_MODEL_H
 
 #include "Vec3.h"
+#include <pthread.h>
 
 
 typedef struct {
@@ -20,6 +21,7 @@ typedef struct {
 
 
 typedef struct {
+    int thread_count;
     int n_points;
     int n_dipoles;
     double energy;
@@ -29,6 +31,8 @@ typedef struct {
     int delta_checks;
     double T;
     Vec3 B;
+    int Ti;
+    int Bi;
     int output;
     int randomise;
     double radius; // for spherical
@@ -36,9 +40,20 @@ typedef struct {
     int length, width, height; // for rectangular and cuboidal lattices
     int lattice_type; // 1 = rectangular, 2 = cuboidal, 3 = spherical
     int field_type; // 1 = linear, 2 = dipole, 3 = both
+    int working;
     Dipole* dipoles;
     Point* points;
+    double** mags;
+    double** energies;
 } Model;
+
+
+typedef struct {
+    int thread_count;
+    int to_run;
+    pthread_t* tid;
+    Model* models;
+} Settings;
 
 
 void distribute_points(Model*);
@@ -55,6 +70,8 @@ void randomise(Model*);
 
 void evolve(Model*);
 
+void *thread_evolve(void*);
+
 void output(Model*);
 
 void B_from_dipoles(Model*);
@@ -67,7 +84,13 @@ void var_T(Model*, double, double, double, int);
 
 void var_B(Model*, double, double, double, int);
 
-void var_T_B(Model*, double, double, double, double, double, int);
+void var_T_B(Model*, Settings*, double, double, double, double, double, int);
+
+int find_thread(Settings*);
+
+void copy_model(Model*, Model*);
+
+Model* create_model();
 
 
 #endif //SPHERICAL_ISING_MODEL_MODEL_H
