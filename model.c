@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
-#include <windows.h>
 
 #define J 1.
 #define mu_b 1.
@@ -267,14 +266,11 @@ void evolve(Model* model) {
 void set_evolve(Model* model) { // performs evolution once
     model->energy = energy(model);
     model->mag = norm_mag(model);
-//    printf("E = %g, M = %g\n", model->energy, model->mag);
 
     evolve(model);
 
     model->energy = energy(model);
     model->mag = norm_mag(model);
-//    model->working = 0;
-//    printf("E = %g, M = %g\n", model->energy, model->mag);
 }
 
 
@@ -283,6 +279,13 @@ void *thread_evolve(void *m) {
     set_evolve(model);
     model->mags[model->Ti][model->Bi] += model->mag;
     model->energies[model->Ti][model->Bi] += model->energy;
+
+    for (int i = 0; i < model->n_points; ++i) {
+        free(model->points[i].nns);
+    }
+    free(model->points);
+    free(model->dipoles);
+
     model->working = 0;
     return NULL;
 }
