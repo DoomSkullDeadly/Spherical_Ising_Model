@@ -12,7 +12,7 @@
 int main() {
     srand(time(NULL)); // NOLINT
     Model model = {12,
-                   1600,
+                   100,
                    0,
                    0,
                    0,
@@ -29,7 +29,7 @@ int main() {
                    10,
                    10,
                    10,
-                   1,
+                   3,
                    1,
                    0};
     // TODO: initial params declared earlier as constants, allow external file for user set default settings
@@ -58,6 +58,7 @@ int main() {
                 nns(&model);
                 printf("Calculating magnetic field\n");
                 B_from_dipoles(&model);
+                precalc_B(&model);
                 printf("Evolving model\n");
                 set_evolve(&model);
                 free_Points(&model);
