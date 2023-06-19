@@ -183,37 +183,30 @@ double energy(Model* model) {
         double B = 0; // the following could all be done by using nns to find plane and thus normal to point to use with dot prod but that would probably be more computationally taxing.
         if (model->lattice_type == 1) {
             if (model->field_type != 2) {
-                B += model->B.z;
+                B += model->points[point].direct_B;
             }
             if (model->field_type != 1) {
-                B += model->points[point].B.z;
+                B += model->points[point].dipole_B;
             }
             E -= mu_b * B * ((double)model->points[point].spin);
         }
 
         else if (model->lattice_type == 2) {
-            int cond_x = (model->points[point].coord.x == 0 || model->points[point].coord.x == model->length-1) ? 1 : 0;
-            int cond_y = (model->points[point].coord.y == 0 || model->points[point].coord.y == model->width-1) ? 1 : 0;
-            int cond_z = (model->points[point].coord.z == 0 || model->points[point].coord.z == model->height-1) ? 1 : 0;
-            int cond_sum = cond_x + cond_y + cond_z;
-            Vec3 condition = {copysign(1, model->points[point].coord.x-cond_x) * cond_x / sqrt(cond_sum),
-                              copysign(1, model->points[point].coord.y-cond_y) * cond_y / sqrt(cond_sum),
-                              copysign(1, model->points[point].coord.z-cond_z) * cond_z / sqrt(cond_sum)};
-            if (model->lattice_type != 2) {
-                B += vec_dot_prod(condition, model->B);
+            if (model->field_type != 2) {
+                B += model->points[point].direct_B;
             }
-            if (model->lattice_type != 1) {
-                B += vec_dot_prod(condition, model->points[point].B);
+            if (model->field_type != 1) {
+                B += model->points[point].dipole_B;
             }
             E -= mu_b * B * (double)model->points[point].spin;
         }
 
         else if (model->lattice_type == 3) {
-            if (model->lattice_type != 2) {
-                B += vec_dot_prod(model->points[point].coord, model->B);
+            if (model->field_type != 2) {
+                B += model->points[point].direct_B;
             }
-            if (model->lattice_type != 1) {
-                B += vec_dot_prod(model->points[point].coord, model->points[point].B);
+            if (model->field_type != 1) {
+                B += model->points[point].dipole_B;
             }
             E -= mu_b * B / vec_mag(model->points[point].coord) * (double)model->points[point].spin;
         }
@@ -330,6 +323,34 @@ void B_from_dipoles(Model* model) {
 }
 
 
+void precalc_B(Model* model) {
+    for (int point = 0; point < model->n_points; ++point) {
+        if (model->lattice_type == 1) {
+            model->points[point].direct_B = model->B.z;
+            model->points[point].dipole_B = model->points[point].B.z;
+        }
+
+        else if (model->lattice_type == 2) {
+            int cond_x = (model->points[point].coord.x == 0 || model->points[point].coord.x == model->length-1) ? 1 : 0;
+            int cond_y = (model->points[point].coord.y == 0 || model->points[point].coord.y == model->width-1) ? 1 : 0;
+            int cond_z = (model->points[point].coord.z == 0 || model->points[point].coord.z == model->height-1) ? 1 : 0;
+            int cond_sum = cond_x + cond_y + cond_z;
+            Vec3 condition = {copysign(1, model->points[point].coord.x-cond_x) * cond_x / sqrt(cond_sum),
+                              copysign(1, model->points[point].coord.y-cond_y) * cond_y / sqrt(cond_sum),
+                              copysign(1, model->points[point].coord.z-cond_z) * cond_z / sqrt(cond_sum)};
+
+            model->points[point].direct_B = vec_dot_prod(condition, model->B);
+            model->points[point].dipole_B = vec_dot_prod(condition, model->points[point].B);
+        }
+
+        else if (model->lattice_type == 3) {
+            model->points[point].direct_B = vec_dot_prod(model->points[point].coord, model->B);
+            model->points[point].dipole_B = vec_dot_prod(model->points[point].coord, model->points[point].B);
+        }
+    }
+}
+
+
 void free_Points(Model* model) {
     for (int i = 0; i < model->n_points; ++i) {
         free(model->points[i].nns);
@@ -341,6 +362,8 @@ void free_Points(Model* model) {
 void var_T(Model* model, double start, double end, double increment, int repeats) {
     distribute_points(model);
     nns(model);
+    B_from_dipoles(model);
+    precalc_B(model);
     int arr_length = (int)((end - start) / increment) + 1;
     double* mags = (double*)calloc(arr_length, sizeof(double));
     double* energies = (double*)calloc(arr_length, sizeof(double));
@@ -377,6 +400,8 @@ void var_T(Model* model, double start, double end, double increment, int repeats
 void var_B(Model* model, double start, double end, double increment, int repeats) {
     distribute_points(model);
     nns(model);
+    B_from_dipoles(model);
+    precalc_B(model);
     int arr_length = (int)((end - start) / increment) + 1;
     double* mags = (double*)calloc(arr_length, sizeof(double));
     double* energies = (double*)calloc(arr_length, sizeof(double));
@@ -413,6 +438,8 @@ void var_B(Model* model, double start, double end, double increment, int repeats
 void var_T_B(Model* model, Settings* settings, double start_B, double end_B, double start_T, double end_T, double increment, int repeats) {
     distribute_points(model);
     nns(model);
+    B_from_dipoles(model);
+    precalc_B(model);
     int length_B = (int)((end_B - start_B) / increment) + 1;
     int length_T = (int)((end_T - start_T) / increment) + 1;
     model->mags = (double**)calloc(length_T, sizeof(double*));
@@ -536,6 +563,8 @@ void copy_model(Model* old, Model* new) { // couldn't be asked to figure out how
         new->points[i].B.x = old->points[i].B.x;
         new->points[i].B.y = old->points[i].B.y;
         new->points[i].B.z = old->points[i].B.z;
+        new->points[i].direct_B = old->points[i].direct_B;
+        new->points[i].dipole_B = old->points[i].dipole_B;
     }
     for (int i = 0; i < new->n_dipoles; ++i) {
         new->dipoles[i].moment.x = old->dipoles[i].moment.x;

@@ -15,6 +15,8 @@ typedef struct {
     Vec3 coord;
     float spin;
     Vec3 B;
+    double direct_B;
+    double dipole_B;
     int n_nns; // I fucking hate needing to have this, but fuck me ig
     int* nns;
 } Point;
@@ -89,6 +91,8 @@ void var_T_B(Model*, Settings*, double, double, double, double, double, int);
 int find_thread(Settings*);
 
 void copy_model(Model*, Model*);
+
+void precalc_B(Model*);
 
 Model* create_model();
 
