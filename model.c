@@ -180,35 +180,19 @@ double energy(Model* model) {
         }
         E -= J * neighbour_sum / 2;
 
-        double B = 0; // the following could all be done by using nns to find plane and thus normal to point to use with dot prod but that would probably be more computationally taxing.
-        if (model->lattice_type == 1) {
-            if (model->field_type != 2) {
-                B += model->points[point].direct_B;
-            }
-            if (model->field_type != 1) {
-                B += model->points[point].dipole_B;
-            }
-            E -= mu_b * B * ((double)model->points[point].spin);
+        double B = 0;
+        if (model->field_type != 2) {
+            B += model->points[point].direct_B;
+        }
+        if (model->field_type != 1) {
+            B += model->points[point].dipole_B;
         }
 
-        else if (model->lattice_type == 2) {
-            if (model->field_type != 2) {
-                B += model->points[point].direct_B;
-            }
-            if (model->field_type != 1) {
-                B += model->points[point].dipole_B;
-            }
-            E -= mu_b * B * (double)model->points[point].spin;
-        }
-
-        else if (model->lattice_type == 3) {
-            if (model->field_type != 2) {
-                B += model->points[point].direct_B;
-            }
-            if (model->field_type != 1) {
-                B += model->points[point].dipole_B;
-            }
+        if (model->lattice_type == 3) {
             E -= mu_b * B / vec_mag(model->points[point].coord) * (double)model->points[point].spin;
+        }
+        else {
+            E -= mu_b * B * (double)model->points[point].spin;
         }
     }
     return E;
@@ -324,7 +308,7 @@ void B_from_dipoles(Model* model) {
 
 
 void precalc_B(Model* model) {
-    for (int point = 0; point < model->n_points; ++point) {
+    for (int point = 0; point < model->n_points; ++point) { // the following could all be done by using nns to find plane and thus normal to point to use with dot prod but that would probably be more computationally taxing.
         if (model->lattice_type == 1) {
             model->points[point].direct_B = model->B.z;
             model->points[point].dipole_B = model->points[point].B.z;
@@ -477,6 +461,7 @@ void var_T_B(Model* model, Settings* settings, double start_B, double end_B, dou
                 settings->models[free_thread].step = 0;
 
                 randomise(&settings->models[free_thread]);
+                precalc_B(&settings->models[free_thread]);
 
                 settings->models[free_thread].Ti = T;
                 settings->models[free_thread].Bi = B;
