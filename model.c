@@ -251,11 +251,14 @@ void set_evolve(Model* model) { // performs evolution once
 }
 
 
-void *thread_evolve(void *m) {
+void* thread_evolve(void *m) {
     Model* model = (Model*)m;
     set_evolve(model);
+
     model->mags[model->Ti][model->Bi] += model->mag;
     model->energies[model->Ti][model->Bi] += model->energy;
+    model->m_sq[model->Ti][model->Bi] += model->mag * model->mag;
+    model->e_sq[model->Ti][model->Bi] += model->energy * model->energy;
 
     for (int i = 0; i < model->n_points; ++i) {
         free(model->points[i].nns);
@@ -424,13 +427,18 @@ void var_T_B(Model* model, Settings* settings, double start_B, double end_B, dou
     nns(model);
     B_from_dipoles(model);
     precalc_B(model);
+    model->norm = 1. / (repeats * model->n_points);
     int length_B = (int)((end_B - start_B) / increment) + 1;
     int length_T = (int)((end_T - start_T) / increment) + 1;
     model->mags = (double**)calloc(length_T, sizeof(double*));
     model->energies = (double**)calloc(length_T, sizeof(double*));
+    model->m_sq = (double**)calloc(length_T, sizeof(double*));
+    model->e_sq = (double**)calloc(length_T, sizeof(double*));
     for (int i = 0; i < length_T; ++i) {
         model->mags[i] = (double*)calloc(length_B, sizeof(double));
         model->energies[i] = (double*)calloc(length_B, sizeof(double));
+        model->m_sq[i] = (double*)calloc(length_B, sizeof(double));
+        model->e_sq[i] = (double*)calloc(length_B, sizeof(double));
     }
     settings->tid = (pthread_t*) malloc(model->thread_count * sizeof(pthread_t));
     settings->models = (Model*) malloc(model->thread_count * sizeof(Model));
@@ -487,16 +495,23 @@ void var_T_B(Model* model, Settings* settings, double start_B, double end_B, dou
     for (int i = 0; i < length_T; ++i) {
         for (int j = 0; j < length_B; ++j) {
             model->mags[i][j] /= repeats;
-            model->energies[i][j] /= repeats * model->n_points;
+            model->energies[i][j] *= model->norm;
+            model->m_sq[i][j] *= model->norm;
+            model->e_sq[i][j] *= model->norm;
         }
     }
 
     FILE *file;
     file = fopen("output/MvTvB.txt", "w");
-    fprintf(file, "T\tB\tM\tE\n");
+    fprintf(file, "T\tB\tM\tE\tS\tC\n");
     for (int i = 0; i < length_T; ++i) {
+        double T = start_T + i * increment;
+        double beta = 1 / (k_b * T);
         for (int j = 0; j < length_B; ++j) {
-            fprintf(file, "%g\t%g\t%g\t%g\n", start_T + i * increment, start_B + j * increment, model->mags[i][j], model->energies[i][j]);
+            double S = (1 / T) * (model->m_sq[i][j] - (pow(model->mags[i][j], 2) * model->n_points));
+            double C = (1 / (T*T)) * (model->e_sq[i][j] - (pow(model->energies[i][j], 2) * model->n_points));
+            fprintf(file, "%g\t%g\t%g\t%g\t%g\t%g\n",
+                    start_T + i * increment, start_B + j * increment, model->mags[i][j], model->energies[i][j], S, C);
         }
     }
     fclose(file);
@@ -561,4 +576,6 @@ void copy_model(Model* old, Model* new) { // couldn't be asked to figure out how
     }
     new->mags = old->mags;
     new->energies = old->energies;
+    new->m_sq = old->m_sq;
+    new->e_sq = old->e_sq;
 }

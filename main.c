@@ -16,7 +16,10 @@ int main() {
                    0,
                    0,
                    0,
-                   25,
+                   0,
+                   0,
+                   0,
+                   50,
                    0,
                    20,
                    5.,
@@ -29,7 +32,7 @@ int main() {
                    10,
                    10,
                    10,
-                   3,
+                   1,
                    1,
                    0};
     // TODO: initial params declared earlier as constants, allow external file for user set default settings

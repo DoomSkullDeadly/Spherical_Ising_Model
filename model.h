@@ -27,7 +27,10 @@ typedef struct {
     int n_points;
     int n_dipoles;
     double energy;
+    double energy_sq;
     double mag;
+    double mag_sq;
+    double norm;
     int evolve_steps;
     int step;
     int delta_checks;
@@ -47,6 +50,8 @@ typedef struct {
     Point* points;
     double** mags;
     double** energies;
+    double** m_sq;
+    double** e_sq;
 } Model;
 
 

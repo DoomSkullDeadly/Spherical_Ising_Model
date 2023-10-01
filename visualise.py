@@ -20,6 +20,7 @@ ax.set_ylabel("Y")
 ax.set_zlabel("Z")
 
 for point in data:
-    ax.scatter(point[0], point[1], point[2], color='red' if point[3] == 1 else 'blue', s=50)
+    ax.scatter(point[0], point[1], point[2], color='red' if point[3] == 1 else 'blue', s=10)
 
+plt.savefig("test.pdf")
 plt.show()
